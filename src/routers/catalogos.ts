@@ -2,62 +2,120 @@ import { FastifyInstance } from "fastify";
 import { pool } from "../db";
 
 export default async function catalogosRouter(app: FastifyInstance) {
+  // ------------------------
+  // Regiones
+  // ------------------------
   app.get("/regiones", async () => {
     const [rows] = await pool.query(
-      "SELECT id_region AS id, nombre FROM regiones ORDER BY nombre ASC"
+      "SELECT id, nombre FROM catalogo_regiones ORDER BY nombre ASC"
     );
     return rows;
   });
 
+  // ------------------------
+  // Ciudades por región
+  // ------------------------
   app.get("/ciudades/:regionId", async (req: any) => {
     const { regionId } = req.params;
+
     const [rows] = await pool.query(
-      "SELECT id_ciudad AS id, nombre FROM ciudades WHERE id_region = ? ORDER BY nombre ASC",
+      `
+      SELECT id, nombre
+      FROM catalogo_ciudades
+      WHERE region_id = ?
+      ORDER BY nombre ASC
+      `,
       [regionId]
     );
+
     return rows;
   });
 
+  // ------------------------
+  // Comunas por ciudad
+  // ------------------------
   app.get("/comunas/:ciudadId", async (req: any) => {
     const { ciudadId } = req.params;
+
     const [rows] = await pool.query(
-      "SELECT id_comuna AS id, nombre FROM comunas WHERE id_ciudad = ? ORDER BY nombre ASC",
+      `
+      SELECT id, nombre
+      FROM catalogo_comunas
+      WHERE ciudad_id = ?
+      ORDER BY nombre ASC
+      `,
       [ciudadId]
     );
+
     return rows;
   });
 
+  // ------------------------
+  // Tipo de cliente
+  // ------------------------
   app.get("/tipo-cliente", async () => {
     const [rows] = await pool.query(
-      "SELECT id_tipo_cliente AS id, nombre FROM tipos_cliente ORDER BY nombre ASC"
+      `
+      SELECT id, descripcion
+      FROM catalogo_tipo_cliente
+      ORDER BY descripcion ASC
+      `
     );
     return rows;
   });
 
+  // ------------------------
+  // Tipo de vehículo
+  // ------------------------
   app.get("/tipo-vehiculo", async () => {
     const [rows] = await pool.query(
-      "SELECT id_tipo_vehiculo AS id, nombre FROM tipos_vehiculo ORDER BY nombre ASC"
+      `
+      SELECT id, descripcion
+      FROM catalogo_tipo_vehiculo
+      ORDER BY descripcion ASC
+      `
     );
     return rows;
   });
 
+  // ------------------------
+  // Objetivo principal del rastreo
+  // ------------------------
   app.get("/objetivo-rastreo", async () => {
     const [rows] = await pool.query(
-      "SELECT id_objetivo AS id, nombre FROM objetivos_rastreo ORDER BY nombre ASC"
+      `
+      SELECT id, descripcion
+      FROM catalogo_objetivo_rastreo
+      ORDER BY descripcion ASC
+      `
     );
     return rows;
   });
 
+  // ------------------------
+  // ¿Actualmente usa GPS?
+  // ------------------------
   app.get("/usa-gps", async () => {
     const [rows] = await pool.query(
-      "SELECT id_uso_gps AS id, nombre FROM estados_uso_gps ORDER BY id_uso_gps ASC"
+      `
+      SELECT id, descripcion
+      FROM catalogo_usa_gps
+      ORDER BY id ASC
+      `
     );
     return rows;
   });
 
+  // ------------------------
+  // Plazo de implementación
+  // ------------------------
   app.get("/plazo-implementacion", async () => {
     const [rows] = await pool.query(
-      "SELECT id_plazo AS id, nombre FROM plazos_implementacion ORDER BY id_plazo ASC"
+      `
+      SELECT id, descripcion
+      FROM catalogo_plazo_implementacion
+      ORDER BY id ASC
+      `
     );
     return rows;
   });
