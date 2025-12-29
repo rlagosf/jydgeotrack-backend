@@ -15,7 +15,7 @@ export const contactoBodyJsonSchema = {
     // Geografía (catálogos)
     // ------------------
     region_id: { type: ["integer", "null"], minimum: 1 },
-    ciudad_id: { type: ["integer", "null"], minimum: 1 },
+    provincia_id: { type: ["integer", "null"], minimum: 1 },
     comuna_id: { type: ["integer", "null"], minimum: 1 },
 
     // ------------------
@@ -58,7 +58,7 @@ export interface ContactoBody {
   telefono: string;
 
   region_id?: number | null;
-  ciudad_id?: number | null;
+  provincia_id?: number | null;
   comuna_id?: number | null;
 
   tipo_cliente_id: number;

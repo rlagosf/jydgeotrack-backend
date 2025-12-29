@@ -9,7 +9,7 @@ export default async function contactoRouter(app: FastifyInstance) {
       telefono,
 
       region_id,
-      ciudad_id,
+      provincia_id,
       comuna_id,
 
       tipo_cliente_id,
@@ -42,7 +42,7 @@ export default async function contactoRouter(app: FastifyInstance) {
           telefono,
 
           region_id,
-          ciudad_id,
+          provincia_id,
           comuna_id,
 
           tipo_cliente_id,
@@ -63,7 +63,7 @@ export default async function contactoRouter(app: FastifyInstance) {
           telefono ?? null,
 
           region_id ?? null,
-          ciudad_id ?? null,
+          provincia_id ?? null,
           comuna_id ?? null,
 
           tipo_cliente_id ?? null,
