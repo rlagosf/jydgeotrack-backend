@@ -1,8 +1,12 @@
+// src/routers/contacto.ts
 import { FastifyInstance } from "fastify";
 import { pool } from "../db";
+import { sendContactoEmail } from "../services/mailer";
 
 export default async function contactoRouter(app: FastifyInstance) {
   app.post("/", async (req: any, reply: any) => {
+    const body = req.body ?? {};
+
     const {
       nombre_razon_social,
       correo,
@@ -22,10 +26,19 @@ export default async function contactoRouter(app: FastifyInstance) {
 
       detalle_requerimiento,
       acepta_contacto,
-    } = req.body ?? {};
 
-    // Validación mínima alineada a tu regla:
-    // Para enviar el formulario, debe aceptar contacto (1)
+      // 👇 llegan desde el frontend para el correo (no van a la BD)
+      region_nombre,
+      provincia_nombre,
+      comuna_nombre,
+      tipo_cliente_nombre,
+      tipo_vehiculo_nombre,
+      objetivo_nombre,
+      usa_gps_nombre,
+      plazo_nombre,
+    } = body;
+
+    // Validación mínima: checkbox obligatorio
     if (!acepta_contacto) {
       return reply.status(400).send({
         ok: false,
@@ -34,6 +47,7 @@ export default async function contactoRouter(app: FastifyInstance) {
     }
 
     try {
+      // 1) Guardar en BD (solo IDs + campos base)
       await pool.query(
         `
         INSERT INTO contacto_solicitudes (
@@ -79,15 +93,50 @@ export default async function contactoRouter(app: FastifyInstance) {
         ]
       );
 
+      // 2) Enviar correo (con nombres). Si falla, NO rompas el flujo.
+      try {
+        await sendContactoEmail({
+          nombre_razon_social,
+          correo,
+          telefono,
+
+          region_id,
+          provincia_id,
+          comuna_id,
+
+          tipo_cliente_id,
+          cantidad_vehiculos,
+
+          tipo_vehiculo_id,
+          objetivo_rastreo_id,
+          usa_gps_id,
+          plazo_implementacion_id,
+
+          detalle_requerimiento,
+          acepta_contacto,
+
+          // nombres “humanos”
+          region_nombre,
+          provincia_nombre,
+          comuna_nombre,
+          tipo_cliente_nombre,
+          tipo_vehiculo_nombre,
+          objetivo_nombre,
+          usa_gps_nombre,
+          plazo_nombre,
+        });
+      } catch (mailErr) {
+        console.error("MAIL ERROR:", mailErr);
+      }
+
       return reply.send({ ok: true, message: "Solicitud enviada correctamente." });
     } catch (err: any) {
       console.error(err);
 
-      // Si falla por triggers (SQLSTATE '45000') u otras validaciones DB,
-      // normalmente MySQL tira ER_SIGNAL_EXCEPTION o errno 1644
       const errno = err?.errno;
       const msg = err?.sqlMessage || err?.message;
 
+      // Triggers / SIGNAL SQLSTATE
       if (errno === 1644) {
         return reply.status(400).send({
           ok: false,
