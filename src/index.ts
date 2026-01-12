@@ -7,18 +7,30 @@ import { registerRoutes } from "./routes";
 const app = Fastify({ logger: true });
 
 async function start() {
-  await testDBConnection(); // Verifica BD al iniciar
+  await testDBConnection();
 
-  await app.register(cors, { origin: "*" });
+  const isProd = CONFIG.NODE_ENV === "production";
+  const allowlist = CONFIG.CORS_ORIGIN
+    ? CONFIG.CORS_ORIGIN.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
 
-  registerRoutes(app); // Rutas centralizadas
+  await app.register(cors, {
+    origin: isProd
+      ? (origin, cb) => {
+          if (!origin) return cb(null, true);
+          cb(null, allowlist.includes(origin));
+        }
+      : true,
+    credentials: true,
+  });
 
-  app.listen({ port: CONFIG.PORT, host: "0.0.0.0" })
-    .then(() => console.log(`🚀 Server running on port ${CONFIG.PORT}`))
-    .catch((err) => {
-      app.log.error(err);
-      process.exit(1);
-    });
+  registerRoutes(app);
+
+  await app.listen({ port: CONFIG.PORT, host: "0.0.0.0" });
+  app.log.info(`🚀 Server running on port ${CONFIG.PORT}`);
 }
 
-start();
+start().catch((err) => {
+  app.log.error(err);
+  process.exit(1);
+});

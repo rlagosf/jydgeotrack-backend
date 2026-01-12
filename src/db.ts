@@ -1,5 +1,5 @@
 import mysql from "mysql2/promise";
-import "dotenv/config";
+import { CONFIG } from "./config"; // 👈 asegura que dotenv ya cargó el .env.*
 
 function parseDatabaseUrl(databaseUrl: string) {
   const url = new URL(databaseUrl);
@@ -13,12 +13,7 @@ function parseDatabaseUrl(databaseUrl: string) {
   };
 }
 
-const DATABASE_URL = process.env.DATABASE_URL || "";
-if (!DATABASE_URL) {
-  throw new Error("Falta DATABASE_URL en el .env");
-}
-
-const cfg = parseDatabaseUrl(DATABASE_URL);
+const cfg = parseDatabaseUrl(CONFIG.DATABASE_URL);
 
 export const pool = mysql.createPool({
   host: cfg.host,

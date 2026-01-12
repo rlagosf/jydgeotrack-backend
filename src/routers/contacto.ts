@@ -1,7 +1,7 @@
 // src/routers/contacto.ts
 import { FastifyInstance } from "fastify";
 import { pool } from "../db";
-import { sendContactoEmail } from "../services/mailer";
+import { sendContactoEmails } from "../services/mailer";
 
 export default async function contactoRouter(app: FastifyInstance) {
   app.post("/", async (req: any, reply: any) => {
@@ -95,7 +95,7 @@ export default async function contactoRouter(app: FastifyInstance) {
 
       // 2) Enviar correo (con nombres). Si falla, NO rompas el flujo.
       try {
-        await sendContactoEmail({
+        await sendContactoEmails({
           nombre_razon_social,
           correo,
           telefono,
