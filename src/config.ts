@@ -1,33 +1,54 @@
 // src/config.ts
 import dotenv from "dotenv";
+import fs from "fs";
 import path from "path";
 
-// En ts compilado a CommonJS, __dirname EXISTE
 const NODE_ENV = (process.env.NODE_ENV || "development").trim();
 const envFile = NODE_ENV === "production" ? ".env.production" : ".env.development";
 
-// 📍 Busca el env en la raíz del proyecto
-// src/config.ts   -> ../.env.production
-// dist/config.js  -> ../.env.production
-const envPath = path.resolve(__dirname, "..", envFile);
+// Intento A: desde el directorio actual (cPanel a veces lo cambia)
+const cwdPath = path.resolve(process.cwd(), envFile);
+// Intento B: relativo a dist/ -> sube un nivel al root del proyecto
+const distRootPath = path.resolve(__dirname, "..", envFile);
 
-dotenv.config({ path: envPath });
+let loadedFrom = "process.env (sin archivo)";
 
-// Helper: variables obligatorias
+if (fs.existsSync(cwdPath)) {
+  dotenv.config({ path: cwdPath });
+  loadedFrom = cwdPath;
+} else if (fs.existsSync(distRootPath)) {
+  dotenv.config({ path: distRootPath });
+  loadedFrom = distRootPath;
+} else {
+  // No reviento aquí: puede que el hosting entregue variables por panel.
+  // Pero lo dejamos logueado para diagnóstico.
+  console.warn(`[CONFIG] No se encontró ${envFile} en:`, { cwdPath, distRootPath });
+}
+
 const must = (k: string) => {
-  const v = String(process.env[k] ?? "").trim();
+  const v = (process.env[k] ?? "").trim();
   if (!v) {
-    console.error("❌ ENV PATH USADO:", envPath);
-    throw new Error(`Falta ${k} en el ${envFile}`);
+    console.error(`[CONFIG] Falta ${k}.`, {
+      NODE_ENV,
+      envFile,
+      loadedFrom,
+      cwd: process.cwd(),
+      dirname: __dirname,
+    });
+    throw new Error(`Falta ${k} en ${envFile} (o variables de entorno del hosting).`);
   }
   return v;
 };
 
 export const CONFIG = {
   NODE_ENV,
+  ENV_FILE: envFile,
+  ENV_LOADED_FROM: loadedFrom,
+
+  // OJO hosting: a veces el panel define el puerto, o lo inyecta como PORT
   PORT: Number(process.env.PORT || 4001),
 
-  CORS_ORIGIN: String(process.env.CORS_ORIGIN || "").trim(),
+  CORS_ORIGIN: (process.env.CORS_ORIGIN || "").trim(),
 
   DATABASE_URL: must("DATABASE_URL"),
 
@@ -37,9 +58,7 @@ export const CONFIG = {
     SECURE: String(process.env.MAIL_SECURE || "").toLowerCase() === "true",
     USER: must("MAIL_USER"),
     PASS: must("MAIL_PASS"),
-    FROM: String(process.env.MAIL_FROM || "").trim() || must("MAIL_USER"),
-
-    // 👇 correo interno
-    TO: String(process.env.MAIL_TO || "").trim(),
+    FROM: (process.env.MAIL_FROM || "").trim() || must("MAIL_USER"),
+    TO: (process.env.MAIL_TO || "").trim(), // interno opcional
   },
 };
