@@ -1,11 +1,44 @@
 // src/routers/contacto.ts
 import { FastifyInstance } from "fastify";
-import { pool } from "../db";
+import { getDb } from "../db";
 import { sendContactoEmails } from "../services/mailer";
+
+type ContactoBody = {
+  nombre_razon_social?: string | null;
+  correo?: string | null;
+  telefono?: string | null;
+
+  region_id?: number | null;
+  provincia_id?: number | null;
+  comuna_id?: number | null;
+
+  tipo_cliente_id?: number | null;
+  cantidad_vehiculos?: number | null;
+
+  tipo_vehiculo_id?: number | null;
+  objetivo_rastreo_id?: number | null;
+  usa_gps_id?: number | null;
+  plazo_implementacion_id?: number | null;
+
+  detalle_requerimiento?: string | null;
+  acepta_contacto?: boolean | number | string | null;
+
+  // 👇 llegan desde el frontend para el correo (no van a la BD)
+  region_nombre?: string | null;
+  provincia_nombre?: string | null;
+  comuna_nombre?: string | null;
+  tipo_cliente_nombre?: string | null;
+  tipo_vehiculo_nombre?: string | null;
+  objetivo_nombre?: string | null;
+  usa_gps_nombre?: string | null;
+  plazo_nombre?: string | null;
+};
+
+const isTruthy = (v: any) => v === true || v === 1 || v === "1" || v === "true";
 
 export default async function contactoRouter(app: FastifyInstance) {
   app.post("/", async (req: any, reply: any) => {
-    const body = req.body ?? {};
+    const body: ContactoBody = (req.body ?? {}) as ContactoBody;
 
     const {
       nombre_razon_social,
@@ -27,7 +60,6 @@ export default async function contactoRouter(app: FastifyInstance) {
       detalle_requerimiento,
       acepta_contacto,
 
-      // 👇 llegan desde el frontend para el correo (no van a la BD)
       region_nombre,
       provincia_nombre,
       comuna_nombre,
@@ -38,8 +70,11 @@ export default async function contactoRouter(app: FastifyInstance) {
       plazo_nombre,
     } = body;
 
+    // ✅ Normalizamos el checkbox (porque a veces llega "true" / 1 / "1")
+    const acepta = isTruthy(acepta_contacto);
+
     // Validación mínima: checkbox obligatorio
-    if (!acepta_contacto) {
+    if (!acepta) {
       return reply.status(400).send({
         ok: false,
         error: "Debes aceptar ser contactado para enviar el formulario.",
@@ -47,8 +82,10 @@ export default async function contactoRouter(app: FastifyInstance) {
     }
 
     try {
+      const db = getDb();
+
       // 1) Guardar en BD (solo IDs + campos base)
-      await pool.query(
+      await db.query(
         `
         INSERT INTO contacto_solicitudes (
           nombre_razon_social,
@@ -89,7 +126,7 @@ export default async function contactoRouter(app: FastifyInstance) {
           plazo_implementacion_id ?? null,
 
           detalle_requerimiento ?? null,
-          acepta_contacto ? 1 : 0,
+          acepta ? 1 : 0,
         ]
       );
 
@@ -113,7 +150,7 @@ export default async function contactoRouter(app: FastifyInstance) {
           plazo_implementacion_id,
 
           detalle_requerimiento,
-          acepta_contacto,
+          acepta_contacto: acepta,
 
           // nombres “humanos”
           region_nombre,
@@ -126,12 +163,12 @@ export default async function contactoRouter(app: FastifyInstance) {
           plazo_nombre,
         });
       } catch (mailErr) {
-        console.error("MAIL ERROR:", mailErr);
+        app.log.error({ mailErr }, "MAIL ERROR (no rompe flujo)");
       }
 
       return reply.send({ ok: true, message: "Solicitud enviada correctamente." });
     } catch (err: any) {
-      console.error(err);
+      app.log.error({ err }, "CONTACTO ERROR");
 
       const errno = err?.errno;
       const msg = err?.sqlMessage || err?.message;

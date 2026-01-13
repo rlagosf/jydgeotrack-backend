@@ -1,37 +1,60 @@
+// src/db.ts
 import mysql from "mysql2/promise";
-import { CONFIG } from "./config"; // 👈 asegura que dotenv ya cargó el .env.*
+import { CONFIG } from "./config";
 
-function parseDatabaseUrl(databaseUrl: string) {
-  const url = new URL(databaseUrl);
+let pool: mysql.Pool | null = null;
+let initializing: Promise<mysql.Pool> | null = null;
 
-  return {
-    host: url.hostname,
-    port: Number(url.port || 3306),
-    user: decodeURIComponent(url.username),
-    password: decodeURIComponent(url.password),
-    database: url.pathname.replace("/", ""),
-  };
+// Compatibilidad: módulos antiguos pueden importar { db }
+export let db: mysql.Pool;
+
+export async function initDb(): Promise<mysql.Pool> {
+  if (pool) return pool;
+  if (initializing) return initializing;
+
+  initializing = (async () => {
+    try {
+      const newPool = mysql.createPool({
+        uri: CONFIG.DATABASE_URL,
+        waitForConnections: true,
+        // hosting-friendly
+        connectionLimit: 4,
+        queueLimit: 50,
+      });
+
+      const conn = await newPool.getConnection();
+      await conn.ping();
+
+      try {
+        const [[{ db: currentDb }]]: any = await conn.query("SELECT DATABASE() AS db");
+        console.log(`🟢 Conectado correctamente a la base de datos: ${currentDb}`);
+      } catch {
+        console.log("⚠️ No se pudo identificar la base activa (DATABASE()).");
+      }
+
+      conn.release();
+
+      pool = newPool;
+      db = newPool; // alias compat
+      console.log("✅ Pool MySQL inicializado correctamente");
+
+      return newPool;
+    } catch (error) {
+      console.error("❌ Error al conectar a la base de datos:", error);
+      pool = null;
+      initializing = null;
+      throw error;
+    } finally {
+      initializing = null;
+    }
+  })();
+
+  return initializing;
 }
 
-const cfg = parseDatabaseUrl(CONFIG.DATABASE_URL);
-
-export const pool = mysql.createPool({
-  host: cfg.host,
-  port: cfg.port,
-  user: cfg.user,
-  password: cfg.password,
-  database: cfg.database,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-});
-
-export async function testDBConnection() {
-  try {
-    const [rows] = await pool.query("SELECT 1 + 1 AS result");
-    console.log("✅ Conexión a la base de datos OK:", (rows as any)[0].result);
-  } catch (error) {
-    console.error("❌ Error al conectar a la base de datos:", error);
-    throw error;
+export function getDb(): mysql.Pool {
+  if (!pool) {
+    throw new Error("BD no inicializada. Llama a await initDb() antes de usarla.");
   }
+  return pool;
 }
